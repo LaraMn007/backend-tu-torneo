@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RequestType {
+  Unirse
+  Invitar
+}
+
+enum RequestStatus {
+  Pendiente
+  Aceptada
+  Rechazada
+}
+
+enum TournamentStatus {
+  ABIERTO
+  EN_CURSO
+  FINALIZADO
+}
+
+model User {
+  idUser        Int            @id @default(autoincrement())
+  name          String
+  email         String         @unique
+  password      String
+  players       Player[]
+  teams         Team[]         @relation("TeamOwner")
+  tournaments   Tournament[]   @relation("TournamentOwner")
+  notifications Notification[]
+}
+
+model Player {
+  idPlayer  Int      @id @default(autoincrement())
+  idUser    Int
+  name      String
+  dateBirth DateTime
+
+  user          User           @relation(fields: [idUser], references: [idUser])
+  teamPlayers   TeamPlayer[]
+  requests      Request[]
+  notifications Notification[]
+}
+
+model Team {
+  idTeam           Int     @id @default(autoincrement())
+  name             String
+  categoryId       Int
+  ownerId          Int
+  primaryColor     String
+  alternativeColor String
+  image            String?
+  invitationCode   String  @unique
+
+  owner         User             @relation("TeamOwner", fields: [ownerId], references: [idUser])
+  players       TeamPlayer[]
+  requests      Request[]
+  notifications Notification[]
+  tournaments   TournamentTeam[]
+}
+
+model TeamPlayer {
+  id       Int @id @default(autoincrement())
+  teamId   Int
+  playerId Int
+
+  team   Team   @relation(fields: [teamId], references: [idTeam])
+  player Player @relation(fields: [playerId], references: [idPlayer])
+
+  @@unique([teamId, playerId])
+}
+
+model Request {
+  idRequest Int           @id @default(autoincrement())
+  idTeam    Int
+  idPlayer  Int
+  type      RequestType
+  status    RequestStatus
+  createdAt DateTime      @default(now())
+
+  team   Team   @relation(fields: [idTeam], references: [idTeam])
+  player Player @relation(fields: [idPlayer], references: [idPlayer])
+}
+
+model Tournament {
+  idTournament Int              @id @default(autoincrement())
+  idOwner      Int
+  name         String
+  categoryId   Int
+  description  String
+  estado       TournamentStatus
+
+  owner User             @relation("TournamentOwner", fields: [idOwner], references: [idUser])
+  teams TournamentTeam[]
+}
+
+model TournamentTeam {
+  id           Int @id @default(autoincrement())
+  tournamentId Int
+  teamId       Int
+
+  tournament Tournament @relation(fields: [tournamentId], references: [idTournament])
+  team       Team       @relation(fields: [teamId], references: [idTeam])
+
+  @@unique([tournamentId, teamId])
+}
+
+model Notification {
+  idNotification Int      @id @default(autoincrement())
+  userId         Int
+  type           String
+  title          String
+  message        String
+  teamId         Int?
+  playerId       Int?
+  read           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [idUser])
+  team   Team?   @relation(fields: [teamId], references: [idTeam])
+  player Player? @relation(fields: [playerId], references: [idPlayer])
+}
