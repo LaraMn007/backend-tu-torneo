@@ -5,21 +5,15 @@ import { UpdatePlayerDto } from './dto/update-player.dto';
 
 @Injectable()
 export class PlayerService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createPlayerDto: CreatePlayerDto) {
-    console.log(createPlayerDto)
-
     return this.prisma.player.create({
       data: {
         name: createPlayerDto.name,
         dateBirth: new Date(createPlayerDto.dateBirth),
-        user: {
-          connect: {
-            idUser: createPlayerDto.idUser,
-          },
-        },
-      }
+        idUser: createPlayerDto.idUser,
+      },
     });
   }
 
