@@ -1,15 +1,21 @@
-import { IsInt, IsNotEmpty, IsString, MinLength, IsDateString} from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  IsDateString,
+  IsInt,
+} from 'class-validator';
 export class CreatePlayerDto {
-    @IsNotEmpty()
-    @IsString()
-    @MinLength(2)
-    name!: string;
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(2)
+  name!: string;
 
-    @IsNotEmpty()
-    @IsInt()
-    idUser!: number;
+  @IsNotEmpty()
+  @IsInt()
+  idUser!: number;
 
-    @IsNotEmpty()
-    @IsDateString()
-    dateBirth!: string;
+  @IsNotEmpty()
+  @IsDateString()
+  dateBirth!: string;
 }

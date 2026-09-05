@@ -5,7 +5,6 @@ import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import { PlayerModule } from './player/player.module';
 
-
 @Module({
   imports: [PrismaModule, UsersModule, PlayerModule],
   controllers: [AppController],
