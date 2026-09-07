@@ -7,7 +7,7 @@ import { UpdateTeamDto } from './dto/update-team.dto';
 
 @Injectable()
 export class TeamService {
-     constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createTeamDto: CreateTeamDto) {
     return this.prisma.team.create({
@@ -58,4 +58,3 @@ export class TeamService {
     });
   }
 }
-

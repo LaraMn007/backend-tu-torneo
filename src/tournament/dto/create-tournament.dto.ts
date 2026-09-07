@@ -1,4 +1,10 @@
-import {IsEnum,IsInt,IsNotEmpty,IsString,MinLength,} from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 import { TournamentStatus } from '@prisma/client';
 

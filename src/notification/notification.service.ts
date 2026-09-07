@@ -1,7 +1,5 @@
-import {Injectable,NotFoundException,} from '@nestjs/common';
-
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
 
@@ -54,18 +52,13 @@ export class NotificationService {
     });
 
     if (!notification) {
-      throw new NotFoundException(
-        `Notificación ${id} no encontrada`,
-      );
+      throw new NotFoundException(`Notificación ${id} no encontrada`);
     }
 
     return notification;
   }
 
-  async update(
-    id: number,
-    updateNotificationDto: UpdateNotificationDto,
-  ) {
+  async update(id: number, updateNotificationDto: UpdateNotificationDto) {
     return this.prisma.notification.update({
       where: {
         idNotification: id,
