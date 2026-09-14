@@ -1,4 +1,14 @@
-import {Body,Controller,Delete,Get,Param,ParseIntPipe,Patch,Post,} from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch, Post,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
@@ -6,7 +16,7 @@ import { TeamService } from './team.service';
 
 @Controller('team')
 export class TeamController {
-  constructor(private readonly teamService: TeamService) {}
+  constructor(private readonly teamService: TeamService) { }
 
   @Post()
   create(@Body() createTeamDto: CreateTeamDto) {
@@ -32,7 +42,10 @@ export class TeamController {
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.teamService.remove(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<void> {
+    await this.teamService.remove(id);
   }
 }

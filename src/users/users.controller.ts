@@ -7,6 +7,9 @@ import {
   Patch,
   Param,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 
 import { UsersService } from './users.service';
@@ -15,7 +18,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Post()
   async createUSer(@Body() createUserDto: CreateUserDto) {
@@ -30,10 +33,14 @@ export class UsersController {
   @Get(':id')
   async findUSerbyId(@Param('id') id: string) {
     const userFound = await this.usersService.findByUSer(+id);
+
     if (!userFound) {
-      throw new BadRequestException('Usuario no encontrado');
-      return userFound;
+      throw new NotFoundException(
+        `Usuario ${id} no encontrado`,
+      );
     }
+
+    return userFound;
   }
 
   @Patch(':id')
@@ -45,7 +52,8 @@ export class UsersController {
   }
 
   @Delete(':id')
-  async removeUSer(@Param('id') id: string) {
-    return await this.usersService.removeUSer(+id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeUSer(@Param('id') id: string): Promise<void> {
+    await this.usersService.removeUSer(+id);
   }
 }

@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { NotFoundException } from '@nestjs/common';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
   async create(data: CreateUserDto) {
     return this.prisma.user.create({
       data,
@@ -24,7 +25,20 @@ export class UsersService {
     });
   }
 
-  async updateUSer(idUser: number, updateUserDto: UpdateUserDto) {
+  async updateUSer(idUser: number, updateUserDto: UpdateUserDto,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        idUser,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(
+        `Usuario ${idUser} no encontrado`,
+      );
+    }
+
     return this.prisma.user.update({
       where: {
         idUser,
@@ -36,7 +50,19 @@ export class UsersService {
   }
 
   async removeUSer(idUser: number) {
-    return this.prisma.user.delete({
+    const user = await this.prisma.user.findUnique({
+      where: {
+        idUser,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(
+        `Usuario ${idUser} no encontrado`,
+      );
+    }
+
+    await this.prisma.user.delete({
       where: {
         idUser,
       },

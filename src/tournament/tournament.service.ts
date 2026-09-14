@@ -1,4 +1,7 @@
-import {Injectable,NotFoundException,} from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -7,7 +10,7 @@ import { UpdateTournamentDto } from './dto/update-tournament.dto';
 
 @Injectable()
 export class TournamentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(createTournamentDto: CreateTournamentDto) {
     return this.prisma.tournament.create({
@@ -43,7 +46,20 @@ export class TournamentService {
     return tournament;
   }
 
-  async update(id: number, updateTournamentDto: UpdateTournamentDto) {
+  async update(
+    id: number,
+    updateTournamentDto: UpdateTournamentDto,
+  ) {
+    const tournament = await this.prisma.tournament.findUnique({
+      where: {
+        idTournament: id,
+      },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException(`Torneo ${id} no encontrado`);
+    }
+
     return this.prisma.tournament.update({
       where: {
         idTournament: id,
@@ -53,7 +69,17 @@ export class TournamentService {
   }
 
   async remove(id: number) {
-    return this.prisma.tournament.delete({
+    const tournament = await this.prisma.tournament.findUnique({
+      where: {
+        idTournament: id,
+      },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException(`Torneo ${id} no encontrado`);
+    }
+
+    await this.prisma.tournament.delete({
       where: {
         idTournament: id,
       },

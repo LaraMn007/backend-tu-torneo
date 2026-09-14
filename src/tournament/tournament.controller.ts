@@ -1,4 +1,15 @@
-import {Body,Controller,Delete,Get,Param,ParseIntPipe,Patch,Post,} from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
@@ -8,7 +19,7 @@ import { TournamentService } from './tournament.service';
 export class TournamentController {
   constructor(
     private readonly tournamentService: TournamentService,
-  ) {}
+  ) { }
 
   @Post()
   create(@Body() createTournamentDto: CreateTournamentDto) {
@@ -34,7 +45,10 @@ export class TournamentController {
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.tournamentService.remove(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<void> {
+    await this.tournamentService.remove(id);
   }
 }

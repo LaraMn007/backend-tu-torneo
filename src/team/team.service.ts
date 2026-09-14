@@ -7,7 +7,7 @@ import { UpdateTeamDto } from './dto/update-team.dto';
 
 @Injectable()
 export class TeamService {
-     constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(createTeamDto: CreateTeamDto) {
     return this.prisma.team.create({
@@ -42,6 +42,16 @@ export class TeamService {
   }
 
   async update(id: number, updateTeamDto: UpdateTeamDto) {
+    const team = await this.prisma.team.findUnique({
+      where: {
+        idTeam: id,
+      },
+    });
+
+    if (!team) {
+      throw new NotFoundException(`Equipo ${id} no encontrado`);
+    }
+
     return this.prisma.team.update({
       where: {
         idTeam: id,
@@ -51,11 +61,20 @@ export class TeamService {
   }
 
   async remove(id: number) {
-    return this.prisma.team.delete({
+    const team = await this.prisma.team.findUnique({
+      where: {
+        idTeam: id,
+      },
+    });
+
+    if (!team) {
+      throw new NotFoundException(`Equipo ${id} no encontrado`);
+    }
+
+    await this.prisma.team.delete({
       where: {
         idTeam: id,
       },
     });
   }
 }
-

@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
+import { NotFoundException } from '@nestjs/common';
 
 @Injectable()
 export class PlayerService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(createPlayerDto: CreatePlayerDto) {
     return this.prisma.player.create({
@@ -17,19 +18,67 @@ export class PlayerService {
     });
   }
 
-  findAll() {
-    return `This action returns all player`;
+  async findAll() {
+    return this.prisma.player.findMany();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} player`;
+  async findOne(id: number) {
+    const player = await this.prisma.player.findUnique({
+      where: {
+        idPlayer: id,
+      },
+    });
+
+    if (!player) {
+      throw new NotFoundException(
+        `Jugador ${id} no encontrado`,
+      );
+    }
+
+    return player;
   }
 
-  update(id: number, updatePlayerDto: UpdatePlayerDto) {
-    return `This action updates a #${id} player`;
+  async update(
+    id: number,
+    updatePlayerDto: UpdatePlayerDto,
+  ) {
+    const player = await this.prisma.player.findUnique({
+      where: {
+        idPlayer: id,
+      },
+    });
+
+    if (!player) {
+      throw new NotFoundException(
+        `Jugador ${id} no encontrado`,
+      );
+    }
+
+    return this.prisma.player.update({
+      where: {
+        idPlayer: id,
+      },
+      data: updatePlayerDto,
+    });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} player`;
+  async remove(id: number) {
+    const player = await this.prisma.player.findUnique({
+      where: {
+        idPlayer: id,
+      },
+    });
+
+    if (!player) {
+      throw new NotFoundException(
+        `Jugador ${id} no encontrado`,
+      );
+    }
+
+    await this.prisma.player.delete({
+      where: {
+        idPlayer: id,
+      },
+    });
   }
 }

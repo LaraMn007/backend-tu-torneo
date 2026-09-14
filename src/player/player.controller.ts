@@ -6,6 +6,8 @@ import {
   Patch,
   Param,
   Delete,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 
 import { PlayerService } from './player.service';
@@ -14,7 +16,7 @@ import { UpdatePlayerDto } from './dto/update-player.dto';
 
 @Controller('player')
 export class PlayerController {
-  constructor(private readonly playerService: PlayerService) {}
+  constructor(private readonly playerService: PlayerService) { }
 
   @Post()
   async createUSers(@Body() createPlayerDto: CreatePlayerDto) {
@@ -40,7 +42,8 @@ export class PlayerController {
   }
 
   @Delete(':id')
-  removeUser(@Param('id') id: string) {
-    return this.playerService.remove(+id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeUser(@Param('id') id: string): Promise<void> {
+    await this.playerService.remove(+id);
   }
 }
