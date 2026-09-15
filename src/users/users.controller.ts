@@ -6,7 +6,6 @@ import {
   Delete,
   Patch,
   Param,
-  BadRequestException,
   HttpCode,
   HttpStatus,
   NotFoundException,

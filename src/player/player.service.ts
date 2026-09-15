@@ -1,21 +1,40 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
+import { Prisma } from '../../generated/prisma/client.js';
+
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
-import { NotFoundException } from '@nestjs/common';
 
 @Injectable()
 export class PlayerService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createPlayerDto: CreatePlayerDto) {
-    return this.prisma.player.create({
-      data: {
-        name: createPlayerDto.name,
-        dateBirth: new Date(createPlayerDto.dateBirth),
-        idUser: createPlayerDto.idUser,
-      },
-    });
+    try {
+      return await this.prisma.player.create({
+        data: {
+          name: createPlayerDto.name,
+          dateBirth: new Date(createPlayerDto.dateBirth),
+          idUser: createPlayerDto.idUser,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new NotFoundException(
+          `Usuario ${createPlayerDto.idUser} no encontrado`,
+        );
+      }
+
+      throw error;
+    }
   }
 
   async findAll() {
@@ -42,43 +61,55 @@ export class PlayerService {
     id: number,
     updatePlayerDto: UpdatePlayerDto,
   ) {
-    const player = await this.prisma.player.findUnique({
-      where: {
-        idPlayer: id,
-      },
-    });
+    try {
+      return await this.prisma.player.update({
+        where: {
+          idPlayer: id,
+        },
+        data: {
+          ...updatePlayerDto,
+          dateBirth: updatePlayerDto.dateBirth
+            ? new Date(updatePlayerDto.dateBirth)
+            : undefined,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(
+          `Jugador ${id} no encontrado`,
+        );
+      }
 
-    if (!player) {
-      throw new NotFoundException(
-        `Jugador ${id} no encontrado`,
-      );
+      throw error;
     }
-
-    return this.prisma.player.update({
-      where: {
-        idPlayer: id,
-      },
-      data: updatePlayerDto,
-    });
   }
 
-  async remove(id: number) {
-    const player = await this.prisma.player.findUnique({
-      where: {
-        idPlayer: id,
-      },
-    });
+  async remove(id: number): Promise<void> {
+    try {
+      await this.prisma.player.delete({
+        where: {
+          idPlayer: id,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException(
+            `Jugador ${id} no encontrado`,
+          );
+        }
 
-    if (!player) {
-      throw new NotFoundException(
-        `Jugador ${id} no encontrado`,
-      );
+        if (error.code === 'P2003') {
+          throw new ConflictException(
+            'El jugador no puede ser eliminado porque tiene relaciones asociadas',
+          );
+        }
+      }
+
+      throw error;
     }
-
-    await this.prisma.player.delete({
-      where: {
-        idPlayer: id,
-      },
-    });
   }
 }
