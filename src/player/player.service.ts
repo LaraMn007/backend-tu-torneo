@@ -24,13 +24,18 @@ export class PlayerService {
         },
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2003'
-      ) {
-        throw new NotFoundException(
-          `Usuario ${createPlayerDto.idUser} no encontrado`,
-        );
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2003') {
+          throw new NotFoundException(
+            `Usuario ${createPlayerDto.idUser} no encontrado`,
+          );
+        }
+
+        if (error.code === 'P2002') {
+          throw new ConflictException(
+            `El jugador ${createPlayerDto.name} ya existe`,
+          );
+        }
       }
 
       throw error;
