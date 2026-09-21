@@ -28,6 +28,8 @@ model User {
   name          String
   email         String         @unique
   password      String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   players       Player[]
   teams         Team[]         @relation("TeamOwner")
   tournaments   Tournament[]   @relation("TournamentOwner")

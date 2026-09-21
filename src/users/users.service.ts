@@ -6,24 +6,54 @@ import {
 
 import { Prisma } from '../../generated/prisma/client.js';
 
+import { hashPassword } from '../auth/password';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
+type PublicUser = {
+  idUser: number;
+  name: string;
+  email: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function toPublicUser(user: PublicUser): PublicUser {
+  const { idUser, name, email, createdAt, updatedAt } = user;
+  return { idUser, name, email, createdAt, updatedAt };
+}
+
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
+
   async create(data: CreateUserDto) {
+    const passwordHash = await hashPassword(data.password);
+
     try {
-      return await this.prisma.user.create({
-        data,
+      const user = await this.prisma.user.create({
+        data: {
+          name: data.name,
+          email: data.email,
+          password: passwordHash,
+        },
+        select: {
+          idUser: true,
+          name: true,
+          email: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       });
+
+      return toPublicUser(user);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        throw new ConflictException('El usuario ya existe');
+        throw new ConflictException('El email ya está registrado');
       }
 
       throw error;
@@ -31,7 +61,15 @@ export class UsersService {
   }
 
   async findAllUser() {
-    return this.prisma.user.findMany();
+    return this.prisma.user.findMany({
+      select: {
+        idUser: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
 
   async findByUSer(id: number) {
@@ -39,15 +77,30 @@ export class UsersService {
       where: {
         idUser: id,
       },
+      select: {
+        idUser: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     if (!user) {
-      throw new NotFoundException(
-        `Usuario ${id} no encontrado`,
-      );
+      throw new NotFoundException(`Usuario ${id} no encontrado`);
     }
 
-    return user;
+    return toPublicUser(user);
+  }
+
+  async findCredentialsByEmail(email: string) {
+    return this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        idUser: true,
+        password: true,
+      },
+    });
   }
 
   async updateUSer(
@@ -55,26 +108,35 @@ export class UsersService {
     updateUserDto: UpdateUserDto,
   ) {
     try {
-      return await this.prisma.user.update({
+      const dataToUpdate = updateUserDto.password
+        ? {
+            password: await hashPassword(updateUserDto.password),
+          }
+        : {};
+
+      const user = await this.prisma.user.update({
         where: {
           idUser,
         },
-        data: {
-          password: updateUserDto.password,
+        data: dataToUpdate,
+        select: {
+          idUser: true,
+          name: true,
+          email: true,
+          createdAt: true,
+          updatedAt: true,
         },
       });
+
+      return toPublicUser(user);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          throw new ConflictException(
-            'El usuario ya existe',
-          );
+          throw new ConflictException('El email ya está registrado');
         }
 
         if (error.code === 'P2025') {
-          throw new NotFoundException(
-            `Usuario ${idUser} no encontrado`,
-          );
+          throw new NotFoundException(`Usuario ${idUser} no encontrado`);
         }
       }
 
@@ -98,9 +160,7 @@ export class UsersService {
         }
 
         if (error.code === 'P2025') {
-          throw new NotFoundException(
-            `Usuario ${idUser} no encontrado`,
-          );
+          throw new NotFoundException(`Usuario ${idUser} no encontrado`);
         }
       }
 

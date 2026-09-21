@@ -1,10 +1,12 @@
 import { PartialType } from '@nestjs/mapped-types';
+import { IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
+
 import { CreateUserDto } from './create-user.dto';
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsNotEmpty()
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
+  @Matches(/\S/, { message: 'La contraseña no puede estar vacía' })
   password!: string;
 }
