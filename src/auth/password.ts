@@ -13,24 +13,32 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function verifyPassword(
   password: string,
-  storedHash: string,
+  storedHash: unknown,
 ): Promise<boolean> {
-  if (!storedHash.startsWith(`${SCRYPT_PREFIX}$`)) {
+  if (typeof storedHash !== 'string') {
     return false;
   }
 
-  const [, , , , salt, hash] = storedHash.split('$');
+  const match = storedHash.match(
+    /^scrypt\$16384\$8\$1\$([a-f0-9]{32})\$([a-f0-9]{128})$/,
+  );
 
-  if (!salt || !hash) {
+  if (!match) {
     return false;
   }
 
-  const key = (await scrypt(password, salt, 64)) as Buffer;
-  const expected = Buffer.from(hash, 'hex');
+  const [, salt, hash] = match;
 
-  if (expected.length !== key.length) {
+  try {
+    const key = (await scrypt(password, salt, 64)) as Buffer;
+    const expected = Buffer.from(hash, 'hex');
+
+    if (expected.length !== key.length) {
+      return false;
+    }
+
+    return timingSafeEqual(expected, key);
+  } catch {
     return false;
   }
-
-  return timingSafeEqual(expected, key);
 }

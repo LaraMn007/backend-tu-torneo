@@ -12,9 +12,19 @@ import { TeamModule } from './team/team.module';
 import { RequestModule } from './request/request.module';
 import { TournamentModule } from './tournament/tournament.module';
 import { NotificationModule } from './notification/notification.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, UsersModule, PlayerModule, TeamModule, RequestModule, TournamentModule, NotificationModule,],
+  imports: [
+    PrismaModule,
+    UsersModule,
+    AuthModule,
+    PlayerModule,
+    TeamModule,
+    RequestModule,
+    TournamentModule,
+    NotificationModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
