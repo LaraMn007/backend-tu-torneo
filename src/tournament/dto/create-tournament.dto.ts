@@ -2,6 +2,7 @@ import {
   IsEnum,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
   MinLength,
 } from 'class-validator';
@@ -22,10 +23,9 @@ export class CreateTournamentDto {
   @IsInt()
   categoryId!: number;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  @MinLength(2)
-  description!: string;
+  description?: string | null;
 
   @IsNotEmpty()
   @IsEnum(TournamentStatus)

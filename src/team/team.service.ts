@@ -47,7 +47,26 @@ export class TeamService {
   }
 
   async findAll() {
-    return this.prisma.team.findMany();
+    const teams = await this.prisma.team.findMany({
+      include: { players: { include: { player: true } } },
+    });
+    return teams.map(team => this.withPlayers(team));
+  }
+
+  async findByOwner(ownerId: number) {
+    const teams = await this.prisma.team.findMany({
+      where: { ownerId },
+      include: { players: { include: { player: true } } },
+    });
+    return teams.map(team => this.withPlayers(team));
+  }
+
+  async findByOwnerAndCategory(ownerId: number, categoryId: number) {
+    const teams = await this.prisma.team.findMany({
+      where: { ownerId, categoryId },
+      include: { players: { include: { player: true } } },
+    });
+    return teams.map(team => this.withPlayers(team));
   }
 
   async findOne(id: number) {
@@ -55,13 +74,47 @@ export class TeamService {
       where: {
         idTeam: id,
       },
+      include: { players: { include: { player: true } } },
     });
 
     if (!team) {
       throw new NotFoundException(`Equipo ${id} no encontrado`);
     }
 
-    return team;
+    return this.withPlayers(team);
+  }
+
+  async addPlayer(teamId: number, playerId: number) {
+    await this.ensureTeamAndPlayer(teamId, playerId);
+
+    try {
+      await this.prisma.teamPlayer.create({
+        data: { teamId, playerId },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('El jugador ya pertenece al equipo');
+      }
+      throw error;
+    }
+
+    return this.findOne(teamId);
+  }
+
+  async removePlayer(teamId: number, playerId: number) {
+    await this.ensureTeamAndPlayer(teamId, playerId);
+    const membership = await this.prisma.teamPlayer.findUnique({
+      where: { teamId_playerId: { teamId, playerId } },
+    });
+
+    if (!membership) {
+      throw new NotFoundException('El jugador no pertenece al equipo');
+    }
+
+    await this.prisma.teamPlayer.delete({
+      where: { teamId_playerId: { teamId, playerId } },
+    });
+    return this.findOne(teamId);
   }
 
   async update(id: number, updateTeamDto: UpdateTeamDto) {
@@ -137,6 +190,20 @@ export class TeamService {
 
       throw error;
     }
+  }
+
+  private async ensureTeamAndPlayer(teamId: number, playerId: number): Promise<void> {
+    const [team, player] = await Promise.all([
+      this.prisma.team.findUnique({ where: { idTeam: teamId } }),
+      this.prisma.player.findUnique({ where: { idPlayer: playerId } }),
+    ]);
+
+    if (!team) throw new NotFoundException(`Equipo ${teamId} no encontrado`);
+    if (!player) throw new NotFoundException(`Jugador ${playerId} no encontrado`);
+  }
+
+  private withPlayers<T extends { players: Array<{ player: unknown }> }>(team: T) {
+    return { ...team, players: team.players.map(membership => membership.player) };
   }
 }
 

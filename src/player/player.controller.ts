@@ -8,6 +8,7 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  ParseIntPipe,
 } from '@nestjs/common';
 
 import { PlayerService } from './player.service';
@@ -28,9 +29,14 @@ export class PlayerController {
     return this.playerService.findAll();
   }
 
+  @Get('user/:userId')
+  findByUser(@Param('userId', ParseIntPipe) userId: number) {
+    return this.playerService.findByUser(userId);
+  }
+
   @Get(':id')
-  findUserById(@Param('id') id: string) {
-    return this.playerService.findOne(+id);
+  findUserById(@Param('id', ParseIntPipe) id: number) {
+    return this.playerService.findOne(id);
   }
 
   @Patch(':id')

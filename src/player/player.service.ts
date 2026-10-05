@@ -46,6 +46,18 @@ export class PlayerService {
     return this.prisma.player.findMany();
   }
 
+  async findByUser(userId: number) {
+    const player = await this.prisma.player.findFirst({
+      where: { idUser: userId },
+    });
+
+    if (!player) {
+      throw new NotFoundException(`Jugador del usuario ${userId} no encontrado`);
+    }
+
+    return player;
+  }
+
   async findOne(id: number) {
     const player = await this.prisma.player.findUnique({
       where: {

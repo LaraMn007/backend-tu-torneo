@@ -93,7 +93,7 @@ model Tournament {
   idOwner      Int
   name         String
   categoryId   Int
-  description  String
+  description  String?
   estado       TournamentStatus
 
   owner User             @relation("TournamentOwner", fields: [idOwner], references: [idUser])
