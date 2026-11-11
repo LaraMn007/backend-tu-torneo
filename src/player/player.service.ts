@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -14,36 +15,32 @@ import { UpdatePlayerDto } from './dto/update-player.dto';
 export class PlayerService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createPlayerDto: CreatePlayerDto) {
+  async create(createPlayerDto: CreatePlayerDto, currentUserId: number) {
+    if (createPlayerDto.idUser !== currentUserId) {
+      throw new ForbiddenException('No podés crear un jugador para otro usuario.');
+    }
+
     try {
       return await this.prisma.player.create({
         data: {
           name: createPlayerDto.name,
           dateBirth: new Date(createPlayerDto.dateBirth),
-          idUser: createPlayerDto.idUser,
+          idUser: currentUserId,
         },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2003') {
-          throw new NotFoundException(
-            `Usuario ${createPlayerDto.idUser} no encontrado`,
-          );
+          throw new NotFoundException(`Usuario ${currentUserId} no encontrado`);
         }
 
         if (error.code === 'P2002') {
-          throw new ConflictException(
-            `El jugador ${createPlayerDto.name} ya existe`,
-          );
+          throw new ConflictException(`El jugador ${createPlayerDto.name} ya existe`);
         }
       }
 
       throw error;
     }
-  }
-
-  async findAll() {
-    return this.prisma.player.findMany();
   }
 
   async findByUser(userId: number) {
@@ -58,36 +55,38 @@ export class PlayerService {
     return player;
   }
 
-  async findOne(id: number) {
+  async findByUserForUser(userId: number, currentUserId: number) {
+    if (userId !== currentUserId) {
+      throw new ForbiddenException('No tenés permiso para acceder a este jugador.');
+    }
+    return this.findByUser(userId);
+  }
+
+  async findOneForUser(id: number, currentUserId: number) {
     const player = await this.prisma.player.findUnique({
-      where: {
-        idPlayer: id,
-      },
+      where: { idPlayer: id },
     });
 
     if (!player) {
-      throw new NotFoundException(
-        `Jugador ${id} no encontrado`,
-      );
+      throw new NotFoundException(`Jugador ${id} no encontrado`);
+    }
+    if (player.idUser !== currentUserId) {
+      throw new ForbiddenException('No tenés permiso para acceder a este jugador.');
     }
 
     return player;
   }
 
-  async update(
-    id: number,
-    updatePlayerDto: UpdatePlayerDto,
-  ) {
+  async update(id: number, updatePlayerDto: UpdatePlayerDto, currentUserId: number) {
+    await this.findOneForUser(id, currentUserId);
     try {
       return await this.prisma.player.update({
-        where: {
-          idPlayer: id,
-        },
+        where: { idPlayer: id },
         data: {
-          ...updatePlayerDto,
-          dateBirth: updatePlayerDto.dateBirth
-            ? new Date(updatePlayerDto.dateBirth)
-            : undefined,
+          ...(updatePlayerDto.name !== undefined ? { name: updatePlayerDto.name } : {}),
+          ...(updatePlayerDto.dateBirth !== undefined
+            ? { dateBirth: new Date(updatePlayerDto.dateBirth) }
+            : {}),
         },
       });
     } catch (error) {
@@ -95,28 +94,23 @@ export class PlayerService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2025'
       ) {
-        throw new NotFoundException(
-          `Jugador ${id} no encontrado`,
-        );
+        throw new NotFoundException(`Jugador ${id} no encontrado`);
       }
 
       throw error;
     }
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number, currentUserId: number): Promise<void> {
+    await this.findOneForUser(id, currentUserId);
     try {
       await this.prisma.player.delete({
-        where: {
-          idPlayer: id,
-        },
+        where: { idPlayer: id },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
-          throw new NotFoundException(
-            `Jugador ${id} no encontrado`,
-          );
+          throw new NotFoundException(`Jugador ${id} no encontrado`);
         }
 
         if (error.code === 'P2003') {

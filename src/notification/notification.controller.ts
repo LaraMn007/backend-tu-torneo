@@ -1,8 +1,19 @@
-import {Body,Controller,Delete,Get,Param,ParseIntPipe,Patch,Post,} from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
 
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
 import { NotificationService } from './notification.service';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/current-user.decorator';
 
 @Controller('notification')
 export class NotificationController {
@@ -13,33 +24,37 @@ export class NotificationController {
   @Post()
   create(
     @Body() createNotificationDto: CreateNotificationDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.notificationService.create(createNotificationDto);
+    return this.notificationService.create(createNotificationDto, user.idUser);
   }
 
   @Get()
-  findAll() {
-    return this.notificationService.findAll();
+  findAll(@CurrentUser() user: AuthenticatedUser) {
+    return this.notificationService.findAllForUser(user.idUser);
+  }
+
+  @Patch('read-all')
+  markAllRead(@CurrentUser() user: AuthenticatedUser) {
+    return this.notificationService.markAllRead(user.idUser);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.notificationService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.notificationService.findOne(id, user.idUser);
   }
 
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateNotificationDto: UpdateNotificationDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.notificationService.update(
-      id,
-      updateNotificationDto,
-    );
+    return this.notificationService.update(id, updateNotificationDto, user.idUser);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.notificationService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.notificationService.remove(id, user.idUser);
   }
 }

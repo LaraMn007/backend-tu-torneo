@@ -23,6 +23,11 @@ enum TournamentStatus {
   FINALIZADO
 }
 
+enum MatchStatus {
+  PENDIENTE
+  FINALIZADO
+}
+
 model User {
   idUser        Int            @id @default(autoincrement())
   name          String
@@ -63,6 +68,9 @@ model Team {
   requests      Request[]
   notifications Notification[]
   tournaments   TournamentTeam[]
+  matchesAsTeamA Match[]         @relation("MatchTeamA")
+  matchesAsTeamB Match[]         @relation("MatchTeamB")
+  matchesWon     Match[]         @relation("MatchWinner")
 }
 
 model TeamPlayer {
@@ -96,8 +104,9 @@ model Tournament {
   description  String?
   estado       TournamentStatus
 
-  owner User             @relation("TournamentOwner", fields: [idOwner], references: [idUser])
-  teams TournamentTeam[]
+  owner   User             @relation("TournamentOwner", fields: [idOwner], references: [idUser])
+  teams   TournamentTeam[]
+  matches Match[]
 }
 
 model TournamentTeam {
@@ -125,4 +134,27 @@ model Notification {
   user   User    @relation(fields: [userId], references: [idUser])
   team   Team?   @relation(fields: [teamId], references: [idTeam])
   player Player? @relation(fields: [playerId], references: [idPlayer])
+}
+
+model Match {
+  idMatch       Int         @id @default(autoincrement())
+  idTournament  Int
+  round         Int
+  teamAId       Int
+  teamBId       Int
+  scheduledDate String?
+  scheduledTime String?
+  scoreA        Int?
+  scoreB        Int?
+  winnerTeamId  Int?
+  status        MatchStatus @default(PENDIENTE)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  tournament Tournament @relation(fields: [idTournament], references: [idTournament])
+  teamA      Team       @relation("MatchTeamA", fields: [teamAId], references: [idTeam])
+  teamB      Team       @relation("MatchTeamB", fields: [teamBId], references: [idTeam])
+  winner     Team?      @relation("MatchWinner", fields: [winnerTeamId], references: [idTeam])
+
+  @@unique([idTournament, round, teamAId, teamBId])
 }

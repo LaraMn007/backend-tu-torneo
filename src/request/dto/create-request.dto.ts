@@ -1,5 +1,5 @@
 import { IsEnum, IsInt, IsNotEmpty } from 'class-validator';
-import { RequestStatus, RequestType } from '@prisma/client';
+import { RequestType } from '@prisma/client';
 
 export class CreateRequestDto {
   @IsNotEmpty()
@@ -13,8 +13,4 @@ export class CreateRequestDto {
   @IsNotEmpty()
   @IsEnum(RequestType)
   type!: RequestType;
-
-  @IsNotEmpty()
-  @IsEnum(RequestStatus)
-  status!: RequestStatus;
 }

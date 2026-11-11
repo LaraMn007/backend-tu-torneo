@@ -1,55 +1,64 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
   ParseIntPipe,
+  Patch,
+  Post,
 } from '@nestjs/common';
 
 import { PlayerService } from './player.service';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/current-user.decorator';
 
 @Controller('player')
 export class PlayerController {
   constructor(private readonly playerService: PlayerService) { }
 
   @Post()
-  async createUSers(@Body() createPlayerDto: CreatePlayerDto) {
-    return this.playerService.create(createPlayerDto);
+  async create(@Body() createPlayerDto: CreatePlayerDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.playerService.create(createPlayerDto, user.idUser);
   }
 
-  @Get()
-  findAllUser() {
-    return this.playerService.findAll();
+  @Get('me')
+  findMine(@CurrentUser() user: AuthenticatedUser) {
+    return this.playerService.findByUser(user.idUser);
   }
 
   @Get('user/:userId')
-  findByUser(@Param('userId', ParseIntPipe) userId: number) {
-    return this.playerService.findByUser(userId);
+  findByUser(
+    @Param('userId', ParseIntPipe) userId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.playerService.findByUserForUser(userId, user.idUser);
   }
 
   @Get(':id')
-  findUserById(@Param('id', ParseIntPipe) id: number) {
-    return this.playerService.findOne(id);
+  findById(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.playerService.findOneForUser(id, user.idUser);
   }
 
   @Patch(':id')
-  updateUser(
-    @Param('id') id: string,
+  update(
+    @Param('id', ParseIntPipe) id: number,
     @Body() updatePlayerDto: UpdatePlayerDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.playerService.update(+id, updatePlayerDto);
+    return this.playerService.update(id, updatePlayerDto, user.idUser);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async removeUser(@Param('id') id: string): Promise<void> {
-    await this.playerService.remove(+id);
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.playerService.remove(id, user.idUser);
   }
 }

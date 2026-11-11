@@ -11,18 +11,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
-type PublicUser = {
-  idUser: number;
-  name: string;
-  email: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-function toPublicUser(user: PublicUser): PublicUser {
-  const { idUser, name, email, createdAt, updatedAt } = user;
-  return { idUser, name, email, createdAt, updatedAt };
-}
+const publicUserSelect = {
+  idUser: true,
+  name: true,
+  email: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 @Injectable()
 export class UsersService {
@@ -32,22 +27,14 @@ export class UsersService {
     const passwordHash = await hashPassword(data.password);
 
     try {
-      const user = await this.prisma.user.create({
+      return await this.prisma.user.create({
         data: {
           name: data.name,
           email: data.email,
           password: passwordHash,
         },
-        select: {
-          idUser: true,
-          name: true,
-          email: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        select: publicUserSelect,
       });
-
-      return toPublicUser(user);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -60,37 +47,22 @@ export class UsersService {
     }
   }
 
-  async findAllUser() {
-    return this.prisma.user.findMany({
-      select: {
-        idUser: true,
-        name: true,
-        email: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-  }
-
-  async findByUSer(id: number) {
+  async findById(id: number) {
     const user = await this.prisma.user.findUnique({
-      where: {
-        idUser: id,
-      },
-      select: {
-        idUser: true,
-        name: true,
-        email: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      where: { idUser: id },
+      select: publicUserSelect,
     });
 
     if (!user) {
       throw new NotFoundException(`Usuario ${id} no encontrado`);
     }
 
-    return toPublicUser(user);
+    return user;
+  }
+
+  // Backward-compatible name used by JwtStrategy.
+  async findByUSer(id: number) {
+    return this.findById(id);
   }
 
   async findCredentialsByEmail(email: string) {
@@ -103,32 +75,20 @@ export class UsersService {
     });
   }
 
-  async updateUSer(
-    idUser: number,
-    updateUserDto: UpdateUserDto,
-  ) {
+  async updateUser(idUser: number, updateUserDto: UpdateUserDto) {
     try {
-      const dataToUpdate = updateUserDto.password
-        ? {
-            password: await hashPassword(updateUserDto.password),
-          }
-        : {};
+      const dataToUpdate: Prisma.UserUpdateInput = {};
+      if (updateUserDto.name !== undefined) dataToUpdate.name = updateUserDto.name;
+      if (updateUserDto.email !== undefined) dataToUpdate.email = updateUserDto.email;
+      if (updateUserDto.password) {
+        dataToUpdate.password = await hashPassword(updateUserDto.password);
+      }
 
-      const user = await this.prisma.user.update({
-        where: {
-          idUser,
-        },
+      return await this.prisma.user.update({
+        where: { idUser },
         data: dataToUpdate,
-        select: {
-          idUser: true,
-          name: true,
-          email: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        select: publicUserSelect,
       });
-
-      return toPublicUser(user);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -144,12 +104,15 @@ export class UsersService {
     }
   }
 
-  async removeUSer(idUser: number): Promise<void> {
+  // Backward-compatible name.
+  async updateUSer(idUser: number, updateUserDto: UpdateUserDto) {
+    return this.updateUser(idUser, updateUserDto);
+  }
+
+  async removeUser(idUser: number): Promise<void> {
     try {
       await this.prisma.user.delete({
-        where: {
-          idUser,
-        },
+        where: { idUser },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -166,5 +129,10 @@ export class UsersService {
 
       throw error;
     }
+  }
+
+  // Backward-compatible name.
+  async removeUSer(idUser: number): Promise<void> {
+    return this.removeUser(idUser);
   }
 }

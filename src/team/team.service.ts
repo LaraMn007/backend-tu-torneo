@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,23 +11,32 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 
+const teamInclude = {
+  players: { include: { player: true } },
+} as const;
+
 @Injectable()
 export class TeamService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createTeamDto: CreateTeamDto) {
+  async create(createTeamDto: CreateTeamDto, currentUserId: number) {
+    if (createTeamDto.ownerId !== currentUserId) {
+      throw new ForbiddenException('No podés crear un equipo para otro usuario.');
+    }
     try {
-      return await this.prisma.team.create({
+      const team = await this.prisma.team.create({
         data: {
           name: createTeamDto.name,
           categoryId: createTeamDto.categoryId,
-          ownerId: createTeamDto.ownerId,
+          ownerId: currentUserId,
           primaryColor: createTeamDto.primaryColor,
           alternativeColor: createTeamDto.alternativeColor,
           image: createTeamDto.image,
           invitationCode: createTeamDto.invitationCode,
         },
+        include: teamInclude,
       });
+      return this.withPlayers(team);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -36,9 +46,7 @@ export class TeamService {
         }
 
         if (error.code === 'P2003') {
-          throw new NotFoundException(
-            `Usuario o categoría relacionada no encontrada`,
-          );
+          throw new NotFoundException(`Usuario o categoría relacionada no encontrada`);
         }
       }
 
@@ -46,45 +54,62 @@ export class TeamService {
     }
   }
 
-  async findAll() {
-    const teams = await this.prisma.team.findMany({
-      include: { players: { include: { player: true } } },
-    });
+  async findAllForUser(currentUserId: number) {
+    // Usuarios autenticados pueden descubrir equipos para flujos de unión/solicitud.
+    const teams = await this.prisma.team.findMany({ include: teamInclude });
     return teams.map(team => this.withPlayers(team));
   }
 
-  async findByOwner(ownerId: number) {
-    const teams = await this.prisma.team.findMany({
-      where: { ownerId },
-      include: { players: { include: { player: true } } },
-    });
-    return teams.map(team => this.withPlayers(team));
+  async findByOwnerForUser(ownerId: number, currentUserId: number) {
+    if (ownerId !== currentUserId) {
+      throw new ForbiddenException('No tenés permiso para ver los equipos de otro usuario.');
+    }
+    return this.findByOwner(ownerId);
   }
 
-  async findByOwnerAndCategory(ownerId: number, categoryId: number) {
+  async findByOwnerAndCategoryForUser(ownerId: number, categoryId: number, currentUserId: number) {
+    if (ownerId !== currentUserId) {
+      throw new ForbiddenException('No tenés permiso para ver los equipos de otro usuario.');
+    }
     const teams = await this.prisma.team.findMany({
       where: { ownerId, categoryId },
-      include: { players: { include: { player: true } } },
+      include: teamInclude,
     });
     return teams.map(team => this.withPlayers(team));
   }
 
-  async findOne(id: number) {
+  private async findByOwner(ownerId: number) {
+    const teams = await this.prisma.team.findMany({
+      where: { ownerId },
+      include: teamInclude,
+    });
+    return teams.map(team => this.withPlayers(team));
+  }
+
+  async findOneForUser(id: number, currentUserId: number) {
     const team = await this.prisma.team.findUnique({
-      where: {
-        idTeam: id,
-      },
-      include: { players: { include: { player: true } } },
+      where: { idTeam: id },
+      include: teamInclude,
     });
 
     if (!team) {
       throw new NotFoundException(`Equipo ${id} no encontrado`);
     }
 
+    const isOwner = team.ownerId === currentUserId;
+    const isMember = team.players.some(m => m.player.idUser === currentUserId);
+    if (!isOwner && !isMember) {
+      // Permitir lectura a usuarios autenticados para flujo de solicitud/unión por descubrimiento.
+      // Se devuelve la representación estándar; operaciones de gestión siguen restringidas.
+    }
+
     return this.withPlayers(team);
   }
 
-  async addPlayer(teamId: number, playerId: number) {
+  async addPlayer(teamId: number, playerId: number, currentUserId: number) {
+    const team = await this.getTeamOrThrow(teamId);
+    this.assertTeamOwner(team.ownerId, currentUserId);
+
     await this.ensureTeamAndPlayer(teamId, playerId);
 
     try {
@@ -98,11 +123,22 @@ export class TeamService {
       throw error;
     }
 
-    return this.findOne(teamId);
+    return this.findOneForUser(teamId, currentUserId);
   }
 
-  async removePlayer(teamId: number, playerId: number) {
-    await this.ensureTeamAndPlayer(teamId, playerId);
+  async removePlayer(teamId: number, playerId: number, currentUserId: number) {
+    const team = await this.getTeamOrThrow(teamId);
+    const target = await this.prisma.player.findUnique({ where: { idPlayer: playerId } });
+    if (!target) {
+      throw new NotFoundException(`Jugador ${playerId} no encontrado`);
+    }
+
+    const isOwner = team.ownerId === currentUserId;
+    const isSelf = target.idUser === currentUserId;
+    if (!isOwner && !isSelf) {
+      throw new ForbiddenException('No tenés permiso para quitar este jugador del equipo.');
+    }
+
     const membership = await this.prisma.teamPlayer.findUnique({
       where: { teamId_playerId: { teamId, playerId } },
     });
@@ -114,27 +150,25 @@ export class TeamService {
     await this.prisma.teamPlayer.delete({
       where: { teamId_playerId: { teamId, playerId } },
     });
-    return this.findOne(teamId);
+    return this.findOneForUser(teamId, currentUserId);
   }
 
-  async update(id: number, updateTeamDto: UpdateTeamDto) {
+  async update(id: number, updateTeamDto: UpdateTeamDto, currentUserId: number) {
     try {
-      const team = await this.prisma.team.findUnique({
-        where: {
-          idTeam: id,
-        },
-      });
+      const team = await this.getTeamOrThrow(id);
+      this.assertTeamOwner(team.ownerId, currentUserId);
 
-      if (!team) {
-        throw new NotFoundException(`Equipo ${id} no encontrado`);
+      if (updateTeamDto.ownerId !== undefined && updateTeamDto.ownerId !== currentUserId) {
+        throw new ForbiddenException('No podés transferir la propiedad del equipo.');
       }
 
-      return await this.prisma.team.update({
-        where: {
-          idTeam: id,
-        },
-        data: updateTeamDto,
+      const { ownerId, ...safeData } = updateTeamDto;
+      const updated = await this.prisma.team.update({
+        where: { idTeam: id },
+        data: safeData,
+        include: teamInclude,
       });
+      return this.withPlayers(updated);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
@@ -148,9 +182,7 @@ export class TeamService {
         }
 
         if (error.code === 'P2003') {
-          throw new NotFoundException(
-            `Usuario o categoría relacionada no encontrada`,
-          );
+          throw new NotFoundException(`Usuario o categoría relacionada no encontrada`);
         }
       }
 
@@ -158,22 +190,13 @@ export class TeamService {
     }
   }
 
-  async remove(id: number) {
+  async remove(id: number, currentUserId: number) {
     try {
-      const team = await this.prisma.team.findUnique({
-        where: {
-          idTeam: id,
-        },
-      });
-
-      if (!team) {
-        throw new NotFoundException(`Equipo ${id} no encontrado`);
-      }
+      const team = await this.getTeamOrThrow(id);
+      this.assertTeamOwner(team.ownerId, currentUserId);
 
       await this.prisma.team.delete({
-        where: {
-          idTeam: id,
-        },
+        where: { idTeam: id },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -192,6 +215,23 @@ export class TeamService {
     }
   }
 
+  private async getTeamOrThrow(teamId: number) {
+    const team = await this.prisma.team.findUnique({
+      where: { idTeam: teamId },
+      include: teamInclude,
+    });
+    if (!team) {
+      throw new NotFoundException(`Equipo ${teamId} no encontrado`);
+    }
+    return team;
+  }
+
+  private assertTeamOwner(ownerId: number, currentUserId: number): void {
+    if (ownerId !== currentUserId) {
+      throw new ForbiddenException('No tenés permiso para gestionar este equipo.');
+    }
+  }
+
   private async ensureTeamAndPlayer(teamId: number, playerId: number): Promise<void> {
     const [team, player] = await Promise.all([
       this.prisma.team.findUnique({ where: { idTeam: teamId } }),
@@ -206,5 +246,3 @@ export class TeamService {
     return { ...team, players: team.players.map(membership => membership.player) };
   }
 }
-
-
